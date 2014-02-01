@@ -187,7 +187,10 @@ Before returning, poly1305_finish_ext will zero out the context.
 
 # Performance #
 
-Results sorted by long message performance. 
+Timings are in cycles (rdtsc). Raw cycles are reported for 1 byte to give an idea for very short message overhead, and
+cycles/byte for 64 and above.
+
+Results sorted by long message performance.
 
 Ref32, and especially Ref8, have fairly poor performance, but as both are provided for portability on un-optimized
 platforms this is not an issue.
