@@ -21,10 +21,10 @@ typedef struct poly1305_key {
 
 LIB_PUBLIC void poly1305_init(poly1305_state *S, const poly1305_key *key);
 LIB_PUBLIC void poly1305_init_ext(poly1305_state *S, const poly1305_key *key, size_t bytes_hint);
-LIB_PUBLIC void poly1305_update(poly1305_state *S, const unsigned char *m, size_t bytes);
+LIB_PUBLIC void poly1305_update(poly1305_state *S, const unsigned char *in, size_t inlen);
 LIB_PUBLIC void poly1305_finish(poly1305_state *S, unsigned char *mac);
 
-LIB_PUBLIC void poly1305_auth(unsigned char *mac, const unsigned char *m, size_t bytes, const poly1305_key *key);
+LIB_PUBLIC void poly1305_auth(unsigned char *mac, const unsigned char *in, size_t inlen, const poly1305_key *key);
 
 LIB_PUBLIC int poly1305_startup(void);
 

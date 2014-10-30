@@ -70,7 +70,7 @@ poly1305_init_ext_ref(void *state, const poly1305_key *key, size_t bytes_hint) {
 }
 
 static void
-poly1305_blocks_ref(void *state, const unsigned char *m, size_t bytes) {
+poly1305_blocks_ref(void *state, const unsigned char *in, size_t inlen) {
 	poly1305_state_ref_t *st = (poly1305_state_ref_t *)state;
 	const uint32_t hibit = (st->final) ? 0 : (1 << 24); /* 1 << 128 */
 	uint32_t r0,r1,r2,r3,r4;
@@ -96,13 +96,13 @@ poly1305_blocks_ref(void *state, const unsigned char *m, size_t bytes) {
 	h3 = st->h[3];
 	h4 = st->h[4];
 
-	while (bytes >= POLY1305_BLOCK_SIZE) {
+	while (inlen >= POLY1305_BLOCK_SIZE) {
 		/* h += m[i] */
-		h0 += (U8TO32(m+ 0)     ) & 0x3ffffff;
-		h1 += (U8TO32(m+ 3) >> 2) & 0x3ffffff;
-		h2 += (U8TO32(m+ 6) >> 4) & 0x3ffffff;
-		h3 += (U8TO32(m+ 9) >> 6) & 0x3ffffff;
-		h4 += (U8TO32(m+12) >> 8) | hibit;
+		h0 += (U8TO32(in+ 0)     ) & 0x3ffffff;
+		h1 += (U8TO32(in+ 3) >> 2) & 0x3ffffff;
+		h2 += (U8TO32(in+ 6) >> 4) & 0x3ffffff;
+		h3 += (U8TO32(in+ 9) >> 6) & 0x3ffffff;
+		h4 += (U8TO32(in+12) >> 8) | hibit;
 
 		/* h *= r */
 		d0 = ((uint64_t)h0 * r0) + ((uint64_t)h1 * s4) + ((uint64_t)h2 * s3) + ((uint64_t)h3 * s2) + ((uint64_t)h4 * s1);
@@ -120,8 +120,8 @@ poly1305_blocks_ref(void *state, const unsigned char *m, size_t bytes) {
 		h0 += c * 5;  c =           (h0 >> 26); h0 =           h0 & 0x3ffffff;
 		h1 += c;
 
-		m += POLY1305_BLOCK_SIZE;
-		bytes -= POLY1305_BLOCK_SIZE;
+		in += POLY1305_BLOCK_SIZE;
+		inlen -= POLY1305_BLOCK_SIZE;
 	}
 
 	st->h[0] = h0;
@@ -132,7 +132,7 @@ poly1305_blocks_ref(void *state, const unsigned char *m, size_t bytes) {
 }
 
 static void
-poly1305_finish_ext_ref(void *state, const unsigned char *m, size_t remaining, unsigned char mac[16]) {
+poly1305_finish_ext_ref(void *state, const unsigned char *in, size_t remaining, unsigned char mac[16]) {
 	poly1305_state_ref_t *st = (poly1305_state_ref_t *)state;
 	uint32_t h0,h1,h2,h3,h4,c;
 	uint32_t g0,g1,g2,g3,g4;
@@ -144,7 +144,7 @@ poly1305_finish_ext_ref(void *state, const unsigned char *m, size_t remaining, u
 		unsigned char final[POLY1305_BLOCK_SIZE] = {0};
 		size_t i;
 		for (i = 0; i < remaining; i++)
-			final[i] = m[i];
+			final[i] = in[i];
 		final[remaining] = 1;
 		st->final = 1;
 		poly1305_blocks_ref(st, final, POLY1305_BLOCK_SIZE);
@@ -220,16 +220,16 @@ poly1305_finish_ext_ref(void *state, const unsigned char *m, size_t remaining, u
 }
 
 static void
-poly1305_auth_ref(unsigned char mac[16], const unsigned char *m, size_t bytes, const poly1305_key *key) {
+poly1305_auth_ref(unsigned char mac[16], const unsigned char *in, size_t inlen, const poly1305_key *key) {
 	poly1305_state_ref_t st;
 	size_t blocks;
-	poly1305_init_ext_ref(&st, key, bytes);
-	blocks = (bytes & ~(POLY1305_BLOCK_SIZE - 1));
+	poly1305_init_ext_ref(&st, key, inlen);
+	blocks = (inlen & ~(POLY1305_BLOCK_SIZE - 1));
 	if (blocks) {
-		poly1305_blocks_ref(&st, m, blocks);
-		m += blocks;
-		bytes -= blocks;
+		poly1305_blocks_ref(&st, in, blocks);
+		in += blocks;
+		inlen -= blocks;
 	}
-	poly1305_finish_ext_ref(&st, m, bytes, mac);
+	poly1305_finish_ext_ref(&st, in, inlen, mac);
 }
 

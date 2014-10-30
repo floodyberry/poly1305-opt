@@ -16,17 +16,17 @@ typedef struct poly1305_impl_t {
 
 	size_t (*block_size)(void);
 	void (*init_ext)(void *state, const poly1305_key *key, size_t bytes_hint);
-	void (*blocks)(void *state, const unsigned char *m, size_t bytes);
-	void (*finish_ext)(void *state, const unsigned char *m, size_t remaining, unsigned char *mac);
-	void (*auth)(unsigned char *mac, const unsigned char *m, size_t bytes, const poly1305_key *key);
+	void (*blocks)(void *state, const unsigned char *in, size_t inlen);
+	void (*finish_ext)(void *state, const unsigned char *in, size_t remaining, unsigned char *mac);
+	void (*auth)(unsigned char *mac, const unsigned char *in, size_t inlen, const poly1305_key *key);
 } poly1305_impl_t;
 
 #define POLY1305_DECLARE(ext) \
 	size_t poly1305_block_size_##ext(void); \
 	void poly1305_init_ext_##ext(void *state, const poly1305_key *key, size_t bytes_hint); \
-	void poly1305_blocks_##ext(void *state, const unsigned char *m, size_t bytes); \
-	void poly1305_finish_ext_##ext(void *state, const unsigned char *m, size_t remaining, unsigned char *mac); \
-	void poly1305_auth_##ext(unsigned char *mac, const unsigned char *m, size_t bytes, const poly1305_key *key);
+	void poly1305_blocks_##ext(void *state, const unsigned char *in, size_t inlen); \
+	void poly1305_finish_ext_##ext(void *state, const unsigned char *in, size_t remaining, unsigned char *mac); \
+	void poly1305_auth_##ext(unsigned char *mac, const unsigned char *m, size_t inlen, const poly1305_key *key);
 
 #define POLY1305_IMPL(cpuflags, desc, ext) \
 	{(cpuflags), desc, poly1305_block_size_##ext, poly1305_init_ext_##ext, poly1305_blocks_##ext, poly1305_finish_ext_##ext, poly1305_auth_##ext}
@@ -75,7 +75,7 @@ typedef struct poly1305_impl_t {
 /* the "always runs" version */
 #if defined(HAVE_INT64) && defined(HAVE_INT128)
 	#define POLY1305_GENERIC POLY1305_IMPL(CPUID_GENERIC, "generic/64", ref)
-	#include "poly1305/poly1305_ref-64.inc"
+	#include "poly1305/poly1305_ref-8.inc"
 #elif defined(HAVE_INT32) && defined(HAVE_INT64)
 	#define POLY1305_GENERIC POLY1305_IMPL(CPUID_GENERIC, "generic/32", ref)
 	#include "poly1305/poly1305_ref-32.inc"
@@ -167,7 +167,7 @@ poly1305_init_ext(poly1305_state *S, const poly1305_key *key, size_t bytes_hint)
 }
 
 LIB_PUBLIC void
-poly1305_update(poly1305_state *S, const unsigned char *m, size_t inlen) {
+poly1305_update(poly1305_state *S, const unsigned char *in, size_t inlen) {
 	poly1305_state_internal *state = (poly1305_state_internal *)S;
 
 	/* handle leftover */
@@ -175,9 +175,9 @@ poly1305_update(poly1305_state *S, const unsigned char *m, size_t inlen) {
 		size_t want = (state->block_size - state->leftover);
 		if (want > inlen)
 			want = inlen;
-		memcpy(state->buffer + state->leftover, m, want);
+		memcpy(state->buffer + state->leftover, in, want);
 		inlen -= want;
-		m += want;
+		in += want;
 		state->leftover += want;
 		if (state->leftover < state->block_size)
 			return;
@@ -188,14 +188,14 @@ poly1305_update(poly1305_state *S, const unsigned char *m, size_t inlen) {
 	/* process full blocks */
 	if (inlen >= state->block_size) {
 		size_t want = (inlen & ~(state->block_size - 1));
-		poly1305_consume(state, m, want);
-		m += want;
+		poly1305_consume(state, in, want);
+		in += want;
 		inlen -= want;
 	}
 
 	/* store leftover */
 	if (inlen) {
-		memcpy(state->buffer + state->leftover, m, inlen);
+		memcpy(state->buffer + state->leftover, in, inlen);
 		state->leftover += inlen;
 	}
 }
@@ -207,23 +207,23 @@ poly1305_finish(poly1305_state *S, unsigned char *mac) {
 }
 
 LIB_PUBLIC void
-poly1305_auth(unsigned char *mac, const unsigned char *m, size_t inlen, const poly1305_key *key) {
-	poly1305_opt->auth(mac, m, inlen, key);
+poly1305_auth(unsigned char *mac, const unsigned char *in, size_t inlen, const poly1305_key *key) {
+	poly1305_opt->auth(mac, in, inlen, key);
 }
 
 /* does an incremental mac as well as a one pass and verifies they all match */
 static int
-poly1305_auth_test(unsigned char *mac, const unsigned char *m, size_t inlen, const poly1305_key *key) {
+poly1305_auth_test(unsigned char *mac, const unsigned char *in, size_t inlen, const poly1305_key *key) {
 	poly1305_state st;
 	unsigned char mac2[16];
 	size_t block_size = poly1305_opt->block_size();
 
 	/* one pass */
-	poly1305_auth(mac, m, inlen, key);
+	poly1305_auth(mac, in, inlen, key);
 
 	/* incremental one pass */
 	poly1305_init_ext(&st, key, inlen);
-	poly1305_update(&st, m, inlen);
+	poly1305_update(&st, in, inlen);
 	poly1305_finish(&st, mac2);
 
 	/* make sure they match */
@@ -236,13 +236,13 @@ poly1305_auth_test(unsigned char *mac, const unsigned char *m, size_t inlen, con
 	poly1305_init(&st, key);
 
 	/* do the native block size first to prime the state */
-	if (inlen >= block_size) { poly1305_update(&st, m, block_size); m += block_size; inlen -= block_size; }
+	if (inlen >= block_size) { poly1305_update(&st, in, block_size); in += block_size; inlen -= block_size; }
 
 	/* try 64 down to 16 */
-	if    (inlen >= 64) { poly1305_update(&st, m, 64); m += 64; inlen -= 64; }
-	if    (inlen >= 32) { poly1305_update(&st, m, 32); m += 32; inlen -= 32; }
-	if    (inlen >= 16) { poly1305_update(&st, m, 16); m += 16; inlen -= 16; }
-	if    (inlen >   0) { poly1305_update(&st, m, inlen);                    }
+	if    (inlen >= 64) { poly1305_update(&st, in, 64); in += 64; inlen -= 64; }
+	if    (inlen >= 32) { poly1305_update(&st, in, 32); in += 32; inlen -= 32; }
+	if    (inlen >= 16) { poly1305_update(&st, in, 16); in += 16; inlen -= 16; }
+	if    (inlen >   0) { poly1305_update(&st, in, inlen);                    }
 	poly1305_finish(&st, mac2);
 
 	/* make sure they match */
@@ -387,9 +387,9 @@ poly1305_init_ext_bootup(void *state, const poly1305_key *key, size_t bytes_hint
 }
 
 void
-poly1305_blocks_bootup(void *state, const unsigned char *m, size_t inlen) {
+poly1305_blocks_bootup(void *state, const unsigned char *in, size_t inlen) {
 	if (poly1305_startup() == 0) {
-		poly1305_opt->blocks(state, m, inlen);
+		poly1305_opt->blocks(state, in, inlen);
 	} else {
 		fprintf(stderr, "poly1305 failed to startup\n");
 		exit(1);
@@ -397,9 +397,9 @@ poly1305_blocks_bootup(void *state, const unsigned char *m, size_t inlen) {
 }
 
 void
-poly1305_finish_ext_bootup(void *state, const unsigned char *m, size_t remaining, unsigned char *mac) {
+poly1305_finish_ext_bootup(void *state, const unsigned char *in, size_t remaining, unsigned char *mac) {
 	if (poly1305_startup() == 0) {
-		poly1305_opt->finish_ext(state, m, remaining, mac);
+		poly1305_opt->finish_ext(state, in, remaining, mac);
 	} else {
 		fprintf(stderr, "poly1305 failed to startup\n");
 		exit(1);
@@ -407,9 +407,9 @@ poly1305_finish_ext_bootup(void *state, const unsigned char *m, size_t remaining
 }
 
 void
-poly1305_auth_bootup(unsigned char *mac, const unsigned char *m, size_t inlen, const poly1305_key *key) {
+poly1305_auth_bootup(unsigned char *mac, const unsigned char *in, size_t inlen, const poly1305_key *key) {
 	if (poly1305_startup() == 0) {
-		poly1305_opt->auth(mac, m, inlen, key);
+		poly1305_opt->auth(mac, in, inlen, key);
 	} else {
 		fprintf(stderr, "poly1305 failed to startup\n");
 		exit(1);
