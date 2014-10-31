@@ -75,7 +75,7 @@ typedef struct poly1305_impl_t {
 /* the "always runs" version */
 #if defined(HAVE_INT64) && defined(HAVE_INT128)
 	#define POLY1305_GENERIC POLY1305_IMPL(CPUID_GENERIC, "generic/64", ref)
-	#include "poly1305/poly1305_ref-8.inc"
+	#include "poly1305/poly1305_ref-64.inc"
 #elif defined(HAVE_INT32) && defined(HAVE_INT64)
 	#define POLY1305_GENERIC POLY1305_IMPL(CPUID_GENERIC, "generic/32", ref)
 	#include "poly1305/poly1305_ref-32.inc"
