@@ -111,7 +111,7 @@ The x86-64 compatible version is _only_ included for short messages. It is thoro
 ## ARM ##
 
 * ARMv6: [poly1305\_armv6](app/extensions/poly1305/poly1305_armv6-32.inc)
-* NEON: [poly1305\_avx](app/extensions/poly1305/poly1305_neon-32.inc)
+* NEON: [poly1305\_neon](app/extensions/poly1305/poly1305_neon-32.inc)
 
 NEON versions of the one-shot version `poly1305_auth` will revert to the ARMv6 version if the number of bytes is below a certain threshhold.
 
