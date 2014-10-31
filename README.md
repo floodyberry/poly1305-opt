@@ -106,6 +106,8 @@ SSE2, AVX, and AVX2 versions of the one-shot version `poly1305_auth` will revert
 
 SSE2, AVX, and AVX2 versions of the one-shot version `poly1305_auth` will revert to the x86-64 compatible version if the number of bytes is below a certain threshhold.
 
+The x86-64 compatible version is _only_ included for short messages. It is thoroughly beaten by SIMD versions above 64-128 bytes.
+
 ## ARM ##
 
 * ARMv6: [blake2b\_armv6](app/extensions/blake2b/blake2b_armv6-32.inc)
@@ -156,12 +158,69 @@ Fuzzing tests every available implementation for the current CPU against the ref
 
 * One-shot and Incremental authentication
 
+# BENCHMARKS #
+
+Only the top 3 benchmarks per mode will be shown. Anything past 3 or so is pretty irrelevant to the current architecture.
+
+## [E5200](http://ark.intel.com/products/37212/) ##
+
+<table>
+<thead><tr><th>Implemenation</th><th>1 byte</th><th>64 bytes</th><th>576 bytes</th><th>8192 bytes</th></tr></thead>
+<tbody>
+<tr> <td>SSE2-64   </td> <td> 158</td> <td>  4.70</td> <td>  2.22</td> <td>  1.53</td> </tr>
+<tr> <td>SSE2-32   </td> <td> 275</td> <td>  7.42</td> <td>  2.54</td> <td>  1.80</td> </tr>
+<tr> <td>x86-64    </td> <td> 158</td> <td>  4.74</td> <td>  3.44</td> <td>  3.30</td> </tr>
+<tr> <td>x86-32    </td> <td> 275</td> <td>  7.08</td> <td>  3.74</td> <td>  3.33</td> </tr>
+</tbody>
+</table>
 
 
+## [i7-4770K](http://ark.intel.com/products/75123) ##
 
+Timings are with Turbo Boost and Hyperthreading, so their accuracy is not concrete. 
+For reference, OpenSSL and Crypto++ give ~0.8cpb for AES-128-CTR and ~1.1cpb for AES-256-CTR, ~7.4cpb for SHA-512, and ~4.5cpb for MD5.
 
+<table>
+<thead><tr><th>Implemenation</th><th>1 byte</th><th>64 bytes</th><th>576 bytes</th><th>8192 bytes</th></tr></thead>
+<tbody>
+<tr> <td>AVX2-64   </td> <td> 110</td> <td>  3.22</td> <td>  0.96</td> <td>  0.60</td> </tr>
+<tr> <td>AVX2-32   </td> <td> 223</td> <td>  4.37</td> <td>  1.15</td> <td>  0.67</td> </tr>
+<tr> <td>AVX-64    </td> <td> 110</td> <td>  3.22</td> <td>  1.39</td> <td>  1.06</td> </tr>
+<tr> <td>AVX-32    </td> <td> 223</td> <td>  4.37</td> <td>  1.51</td> <td>  1.04</td> </tr>
+<tr> <td>SSE2-64   </td> <td> 110</td> <td>  3.22</td> <td>  1.43</td> <td>  1.12</td> </tr>
+<tr> <td>SSE2-32   </td> <td> 223</td> <td>  4.33</td> <td>  1.55</td> <td>  1.10</td> </tr>
+</tbody>
+</table>
 
+## AMD FX-8120 ##
 
+Timings are with Turbo on, so accuracy is not concrete. I'm not sure how to adjust for it either, 
+and depending on clock speed (3.1ghz vs 4.0ghz), OpenSSL gives between 0.73cpb - 0.94cpb for AES-128-CTR, 
+1.03cpb - 1.33cpb for AES-256-CTR, 10.96cpb - 14.1cpb for SHA-512, and 4.7cpb - 5.16cpb for MD5.
+
+<table>
+<thead><tr><th>Implemenation</th><th>1 byte</th><th>64 bytes</th><th>576 bytes</th><th>8192 bytes</th></tr></thead>
+<tbody>
+<tr> <td>AVX-64    </td> <td> 175</td> <td>  5.27</td> <td>  1.35</td> <td>  0.80</td> </tr>
+<tr> <td>SSE2-64   </td> <td> 175</td> <td>  5.36</td> <td>  1.47</td> <td>  0.88</td> </tr>
+<tr> <td>AVX-32    </td> <td> 319</td> <td>  5.72</td> <td>  1.85</td> <td>  1.19</td> </tr>
+<tr> <td>SSE2-32   </td> <td> 320</td> <td>  5.78</td> <td>  1.94</td> <td>  1.31</td> </tr>
+<tr> <td>x86-32    </td> <td> 313</td> <td>  8.00</td> <td>  3.62</td> <td>  2.99</td> </tr>
+<tr> <td>x86-64    </td> <td> 175</td> <td>  5.30</td> <td>  4.03</td> <td>  3.83</td> </tr>
+</tbody>
+</table>
+
+## ZedBoard (Cortex-A9) ##
+
+I don't have access to the cycle counter yet, so cycles are computed by taking the microseconds times the clock speed (666mhz) divided by 1 million. For comparison, on long messages, OpenSSL 1.0.0e gives 52.3 cpb for aes-128-cbc (woof), ~123cpb for SHA-512 (really woof), and ~9.6cpb for MD5.
+
+<table>
+<thead><tr><th>Implemenation</th><th>1 byte</th><th>64 bytes</th><th>576 bytes</th><th>8192 bytes</th></tr></thead>
+<tbody>
+<tr> <td>Neon-32    </td> <td> 290</td> <td>  9.53</td> <td>  3.33</td> <td>  2.26</td> </tr>
+<tr> <td>ARMv6-32   </td> <td> 290</td> <td>  9.53</td> <td>  6.99</td> <td>  6.73</td> </tr>
+</tbody>
+</table>
 
 
 # LICENSE #
