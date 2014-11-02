@@ -832,7 +832,7 @@ FN_END poly1305_finish_ext_avx
 
 GLOBAL_HIDDEN_FN poly1305_auth_avx
 cmp $128, %rdx
-jb poly1305_auth_x86
+jb poly1305_auth_x86_local
 pushq %rbp
 movq %rsp, %rbp
 pushq %r14
