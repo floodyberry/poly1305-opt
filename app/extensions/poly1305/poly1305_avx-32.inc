@@ -7,7 +7,7 @@ FN_END poly1305_block_size_avx
 
 
 GLOBAL_HIDDEN_FN poly1305_auth_avx
-cmp $64, 12(%esp)
+cmpl $64, 12(%esp)
 jbe poly1305_auth_x86_local
 pushl %ebp
 movl %esp, %ebp
