@@ -6,7 +6,7 @@ ret
 FN_END poly1305_block_size_sse2
 
 GLOBAL_HIDDEN_FN poly1305_auth_sse2
-cmp $64, 12(%esp)
+cmpl $64, 12(%esp)
 jb poly1305_auth_x86_local
 pushl %ebp
 movl %esp, %ebp
